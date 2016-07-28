@@ -52,7 +52,7 @@ class UserResource(CustomerResource):
         return jsonify({'success': 200, 'message': 'user deleted successfully'})
 
 
-class UserListResource(OpenResource):
+class UserListResource(AdminResource):
 
     model = User
     schema = UserSchema
@@ -70,28 +70,12 @@ class UserListResource(OpenResource):
                 int(request.args['page'])).items
         return jsonify({'success': 200, 'data': self.schema().dump(resources, many=True)})
 
-    def post(self):
-
-        # users, errors = self.schema().load(request.json, session=db.session)
-        # if errors:
-        #     return make_response(jsonify({'error': 101, 'message': str(errors)}), 403)
-        try:
-            users = register_user(**request.json)
-            users.active = True
-            users.roles.append(Role.query.filter(Role.name == 'customer').first())
-            
-            db.session.commit()
-        except (OperationalError, IntegrityError) as e:
-            db.session.rollback()
-            return make_response(jsonify({'error': True, 'data': str(e)}), 403)
-        return jsonify({'success': 200, 'message': 'users added successfully'})
-
 
 api.add_resource(UserListResource, '/users/', endpoint='users')
 api.add_resource(UserResource, '/user/<int:slug>/', endpoint='user')
 
 
-class UserProfileResource(OpenResource):
+class UserProfileResource(CustomerResource):
 
     model = UserProfile
     schema = UserProfileSchema
@@ -236,7 +220,28 @@ class UserLoginResource(OpenResource):
                 return make_response(redirect('/test/v1/admin/', 302))
             else:
                 return make_response(redirect('/test/v1/login', 403))
+
 api.add_resource(UserLoginResource, '/login/', endpoint='login')
+
+
+class UserSignupResource(OpenResource):
+    model = User
+    schema = UserSchema
+
+    def post(self):
+
+        try:
+            users = register_user(**request.json)
+            users.active = True
+            users.roles.append(Role.query.filter(Role.name == 'customer').first())
+
+            db.session.commit()
+        except (OperationalError, IntegrityError) as e:
+            db.session.rollback()
+            return make_response(jsonify({'error': True, 'data': str(e)}), 403)
+        return jsonify({'success': 200, 'message': 'users added successfully'})
+
+api.add_resource(UserSignupResource, '/signup/', endpoint='signup')
 
 
 class UserPasswordResource(OpenResource):
